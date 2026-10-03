@@ -367,7 +367,7 @@ def template_multiple():
 # DATASET GENERATION
 # ---------------------------------------------------------
 
-TEMPLATES = [
+templates = [
     template_person_phone,
     template_id_name,
     template_tin,
@@ -379,7 +379,7 @@ TEMPLATES = [
 ]
 
 
-def generate_dataset(number_of_records=500):
+def generate_dataset(number_of_records=4000):
 
     output_file.parent.mkdir(
         parents=True,
@@ -394,7 +394,7 @@ def generate_dataset(number_of_records=500):
 
         for i in range(number_of_records):
 
-            template = random.choice(TEMPLATES)
+            template = templates[i % len(templates)]
 
             text, entities = template()
 
@@ -426,4 +426,4 @@ def generate_dataset(number_of_records=500):
 # ---------------------------------------------------------
 
 if __name__ == "__main__":
-    generate_dataset(500)
+    generate_dataset(4000)
