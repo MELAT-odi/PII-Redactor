@@ -3,166 +3,129 @@ import re
 from pathlib import Path
 
 
-# ---------------------------------------------------------
-# PROJECT PATHS
-# ---------------------------------------------------------
+project_root = Path(__file__).resolve().parent.parent
+data_dir = project_root / "data" / "synthetic"
+input_file = data_dir / "raw_annotated.jsonl"
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+output_files = {
+    "train": data_dir / "train.jsonl",
+    "validation": data_dir / "validation.jsonl",
+    "test": data_dir / "test.jsonl",
+}
 
-INPUT_FILE = (
-    PROJECT_ROOT
-    / "data"
-    / "synthetic"
-    / "raw_annotated.jsonl"
-)
-
-OUTPUT_FILE = (
-    PROJECT_ROOT
-    / "data"
-    / "synthetic"
-    / "bio_dataset.jsonl"
-)
+token_pattern = re.compile(r"\w+|[^\w\s]", re.UNICODE)
 
 
-# ---------------------------------------------------------
-# TOKENIZER
-# ---------------------------------------------------------
+def tokenize_with_offsets(text):
+    return [
+        (match.group(), match.start(), match.end())
+        for match in token_pattern.finditer(text)
+    ]
 
-TOKEN_PATTERN = re.compile(
-    r"\S+|[።፣፤፥፦፧፨,.;:!?()\[\]{}]"
-)
-
-
-def tokenize_with_spans(text):
-    """
-    Split text into tokens while keeping each token's
-    original character start and end positions.
-    """
-
-    tokens = []
-
-    for match in TOKEN_PATTERN.finditer(text):
-
-        tokens.append({
-            "token": match.group(),
-            "start": match.start(),
-            "end": match.end()
-        })
-
-    return tokens
-
-
-# ---------------------------------------------------------
-# BIO CONVERSION
-# ---------------------------------------------------------
 
 def convert_record(record):
-
     text = record["text"]
-    entities = record["entities"]
+    entities = sorted(record["entities"], key=lambda item: item["start"])
+    tokens_with_offsets = tokenize_with_offsets(text)
 
-    tokens = tokenize_with_spans(text)
-
-    labels = ["O"] * len(tokens)
+    tokens = []
+    labels = []
+    entity_index = 0
+    previous_end = 0
 
     for entity in entities:
+        start = entity["start"]
+        end = entity["end"]
 
-        entity_start = entity["start"]
-        entity_end = entity["end"]
-        entity_label = entity["label"]
-
-        matching_tokens = []
-
-        for i, token in enumerate(tokens):
-
-            token_start = token["start"]
-            token_end = token["end"]
-
-            # Token overlaps entity
-            if (
-                token_start < entity_end
-                and token_end > entity_start
-            ):
-                matching_tokens.append(i)
-
-        if not matching_tokens:
-
+        if text[start:end] != entity["text"]:
             raise ValueError(
-                f"Entity could not be matched:\n"
-                f"{entity}\n"
-                f"Text: {text}"
+                f"{record['id']}: entity text does not match its offsets"
             )
 
-        # First token = B-
-        first_token = matching_tokens[0]
+        if start < previous_end:
+            raise ValueError(f"{record['id']}: overlapping entities")
 
-        labels[first_token] = f"B-{entity_label}"
+        previous_end = end
 
-        # Remaining tokens = I-
-        for token_index in matching_tokens[1:]:
+    for token, token_start, token_end in tokens_with_offsets:
+        while (
+            entity_index < len(entities)
+            and entities[entity_index]["end"] <= token_start
+        ):
+            entity_index += 1
 
-            labels[token_index] = f"I-{entity_label}"
+        label = "O"
+
+        if entity_index < len(entities):
+            entity = entities[entity_index]
+            entity_start = entity["start"]
+            entity_end = entity["end"]
+
+            overlaps = (
+                token_start < entity_end
+                and token_end > entity_start
+            )
+
+            if overlaps:
+                if token_start < entity_start or token_end > entity_end:
+                    raise ValueError(
+                        f"{record['id']}: token crosses an entity boundary: "
+                        f"{token!r}"
+                    )
+
+                prefix = (
+                    "B-"
+                    if token_start == entity_start
+                    else "I-"
+                )
+                label = prefix + entity["label"]
+
+        tokens.append(token)
+        labels.append(label)
 
     return {
         "id": record["id"],
-        "tokens": [
-            token["token"]
-            for token in tokens
-        ],
-        "labels": labels
+        "split": record["split"],
+        "tokens": tokens,
+        "labels": labels,
     }
 
 
-# ---------------------------------------------------------
-# DATASET CONVERSION
-# ---------------------------------------------------------
+def main():
+    split_records = {
+        "train": [],
+        "validation": [],
+        "test": [],
+    }
 
-def convert_dataset():
-
-    output_records = []
-
-    with open(
-        INPUT_FILE,
-        "r",
-        encoding="utf-8"
-    ) as file:
-
-        for line in file:
+    with input_file.open("r", encoding="utf-8") as file:
+        for line_number, line in enumerate(file, start=1):
+            if not line.strip():
+                continue
 
             record = json.loads(line)
+            split = record.get("split")
 
-            converted = convert_record(record)
-
-            output_records.append(converted)
-
-    with open(
-        OUTPUT_FILE,
-        "w",
-        encoding="utf-8"
-    ) as file:
-
-        for record in output_records:
-
-            file.write(
-                json.dumps(
-                    record,
-                    ensure_ascii=False
+            if split not in split_records:
+                raise ValueError(
+                    f"Line {line_number}: invalid split {split!r}"
                 )
-                + "\n"
-            )
 
-    print(
-        f"Converted {len(output_records)} records."
-    )
+            split_records[split].append(convert_record(record))
 
-    print(
-        f"Saved to: {OUTPUT_FILE}"
-    )
+    for split, records in split_records.items():
+        output_file = output_files[split]
 
+        with output_file.open("w", encoding="utf-8") as file:
+            for record in records:
+                file.write(
+                    json.dumps(record, ensure_ascii=False) + "\n"
+                )
 
-# ---------------------------------------------------------
-# MAIN
-# ---------------------------------------------------------
+        print(f"{split}: {len(records)} records -> {output_file}")
+
+    print("BIO conversion completed successfully.")
+
 
 if __name__ == "__main__":
-    convert_dataset()
+    main()
