@@ -1,128 +1,96 @@
 import json
 from pathlib import Path
 
-project_root = Path(__file__).resolve().parent.parent
 
-train_file = project_root/"data"/"synthetic"/"train.jsonl"
-test_file = project_root/"data"/"synthetic"/"test.jsonl"
+project_root = Path(__file__).resolve().parent.parent
+data_dir = project_root / "data" / "synthetic"
+
+split_files = {
+    "train": data_dir / "train.jsonl",
+    "validation": data_dir / "validation.jsonl",
+    "test": data_dir / "test.jsonl",
+}
+
 
 def load_records(file_path):
-    records=[]
+    records = []
 
-    with open(
-        file_path,
-        "r",
-        encoding="utf-8"
-    ) as file:
-
+    with file_path.open("r", encoding="utf-8") as file:
         for line in file:
-            records.append(
-                json.loads(line)
-            )
+            if line.strip():
+                records.append(json.loads(line))
 
     return records
 
+
 def collect_labels(records):
-    labels= set() # to recomve duplication and contain unique values
+    labels = set()
 
     for record in records:
-        for label in record["labels"]:
-            labels.add(label)
+        labels.update(record["labels"])
 
     return labels
 
-def validate_records(records):
 
+def validate_records(records, split_name):
     for record in records:
-
-        tokens= record["tokens"]
-        labels= record["labels"]
+        tokens = record["tokens"]
+        labels = record["labels"]
 
         if len(tokens) != len(labels):
             raise ValueError(
-                f"Token/Label mismatch in "
-                f"{record["id"]}"
-                f"{len(tokens)} tokens"
-                f"{len(labels)} labels"
+                f"Token/label mismatch in {split_name}, "
+                f"record {record['id']}: "
+                f"{len(tokens)} tokens, {len(labels)} labels"
             )
 
+
 def main():
+    datasets = {}
 
-    train_records= load_records(
-        train_file
-    )
+    for split_name, file_path in split_files.items():
+        if not file_path.exists():
+            raise FileNotFoundError(
+                f"Missing {split_name} dataset: {file_path}"
+            )
 
-    test_records= load_records(
-        test_file
-    )
+        datasets[split_name] = load_records(file_path)
+        validate_records(datasets[split_name], split_name)
 
-    validate_records(
-        train_records
-    )
+    label_list = sorted(collect_labels(datasets["train"]))
 
-    validate_records(
-        test_records
-    )
-
-    train_labels= collect_labels(
-        train_records
-    )
-
-    test_labels=collect_labels(
-        test_records
-    )
-
-    all_labels =train_labels |test_labels
-    label_list =sorted(
-        all_labels
-
-    )
-
-    label_to_id ={
+    label_to_id = {
         label: index
         for index, label in enumerate(label_list)
     }
 
-    id_to_label={
+    id_to_label = {
         index: label
         for label, index in label_to_id.items()
     }
 
-    print(
-        f"Training records:"
-        f"{len(train_records)}"
-    )
-
-    print(
-        f"Test records: "
-        f"{len(test_records)}"
-    )
-
-    print()
-
-    print(
-        f"Number of labels: "
-        f"{len(label_list)}"
-    )
-
-    print()
-
-    print("Labels:")
-
-    for label in label_list:
-        print(
-            f"{label_to_id[label]:2d} -> {label}"
+    for split_name in ["validation", "test"]:
+        unseen_labels = (
+            collect_labels(datasets[split_name]) - set(label_list)
         )
 
-    print()
+        if unseen_labels:
+            raise ValueError(
+                f"Labels in {split_name} missing from training: "
+                f"{sorted(unseen_labels)}"
+            )
 
-    print("Label mapping:")
-    print(label_to_id)
+    print(f"Training records:   {len(datasets['train'])}")
+    print(f"Validation records: {len(datasets['validation'])}")
+    print(f"Test records:       {len(datasets['test'])}")
+    print(f"Number of labels:   {len(label_list)}")
 
-    print()
+    print("\nLabel mapping:")
+    for label, index in label_to_id.items():
+        print(f"{index:2d} -> {label}")
 
-    print("ID mapping:")
-    print(id_to_label)
+    print("\nAll splits have valid token/label lengths.")
+    print("Validation and test labels are covered by the training mapping.")
 
 
 if __name__ == "__main__":
