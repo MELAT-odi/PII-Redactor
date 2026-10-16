@@ -1,38 +1,47 @@
-
 import json
 from pathlib import Path
 
 import torch
-from transformers import (
-    AutoTokenizer,
-    AutoModelForTokenClassification
-)
 from seqeval.metrics import (
     classification_report,
+    f1_score,
     precision_score,
     recall_score,
-    f1_score
+)
+from transformers import (
+    AutoModelForTokenClassification,
+    AutoTokenizer,
 )
 
 
 project_root = Path(__file__).resolve().parent.parent
-test_file = project_root / "data" / "synthetic" / "test.jsonl"
+data_dir = project_root / "data" / "synthetic"
 model_dir = project_root / "models" / "ner_model"
 
+evaluation_files = {
+    "Held-out test set": data_dir / "test.jsonl",
+    "External evaluation set": data_dir / "external_eval.jsonl",
+}
 
-def load_test_data(file_path):
+
+def load_records(file_path):
     records = []
 
-    with open(file_path, "r", encoding="utf-8") as file:
+    with file_path.open("r", encoding="utf-8") as file:
         for line in file:
-            records.append(json.loads(line))
+            if line.strip():
+                records.append(json.loads(line))
 
     return records
 
 
 def load_saved_model(model_path):
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    if not model_path.exists():
+        raise FileNotFoundError(
+            f"Saved model directory not found: {model_path}"
+        )
 
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
     model = AutoModelForTokenClassification.from_pretrained(
         model_path
     )
@@ -52,12 +61,15 @@ def load_saved_model(model_path):
     return tokenizer, model, device, id_to_label
 
 
-def predict_word_labels(tokens, tokenizer, model, device, id_to_label):
+def predict_word_labels(
+    tokens, tokenizer, model, device, id_to_label
+):
     encoded_inputs = tokenizer(
         tokens,
         is_split_into_words=True,
         truncation=True,
-        return_tensors="pt"
+        max_length=256,
+        return_tensors="pt",
     )
 
     word_ids = encoded_inputs.word_ids(batch_index=0)
@@ -87,33 +99,41 @@ def predict_word_labels(tokens, tokenizer, model, device, id_to_label):
     return predicted_labels
 
 
-def evaluate_model():
-    print("Loading test data...")
-    test_records = load_test_data(test_file)
+def evaluate_dataset(
+    dataset_name,
+    file_path,
+    tokenizer,
+    model,
+    device,
+    id_to_label,
+):
+    if not file_path.exists():
+        print(f"\nSkipping {dataset_name}: file not found.")
+        print(f"Expected file: {file_path}")
+        return
 
-    print("Loading saved model...")
-    tokenizer, model, device, id_to_label = load_saved_model(
-        model_dir
-    )
-
-    print(f"Device: {device}")
-    print(f"Test documents: {len(test_records)}")
-    print("\nEvaluating model...")
+    records = load_records(file_path)
 
     true_labels = []
     predicted_labels = []
     skipped_records = 0
+    error_count = 0
+    error_examples = []
 
-    for record in test_records:
+    for record in records:
         tokens = record["tokens"]
         actual_labels = record["labels"]
+
+        if len(tokens) != len(actual_labels):
+            skipped_records += 1
+            continue
 
         predicted = predict_word_labels(
             tokens,
             tokenizer,
             model,
             device,
-            id_to_label
+            id_to_label,
         )
 
         if len(predicted) != len(actual_labels):
@@ -123,33 +143,75 @@ def evaluate_model():
         true_labels.append(actual_labels)
         predicted_labels.append(predicted)
 
-    if not true_labels:
-        raise ValueError(
-            "No records could be evaluated. "
-            "Check token and label alignment."
-        )
+        if predicted != actual_labels:
+            error_count += 1
 
-    print("\n=== Overall Entity-Level Metrics ===")
+            if len(error_examples) < 5:
+                error_examples.append({
+                    "id": record.get("id", "unknown"),
+                    "tokens": tokens,
+                    "correct": actual_labels,
+                    "predicted": predicted,
+                })
+
+    print(f"\n{'=' * 60}")
+    print(dataset_name)
+    print(f"{'=' * 60}")
+    print(f"Records in file:       {len(records)}")
+    print(f"Evaluated records:     {len(true_labels)}")
+    print(f"Skipped records:       {skipped_records}")
+    print(f"Records with errors:   {error_count}")
+
+    if not true_labels:
+        print("No records could be evaluated.")
+        return
+
+    print("\nOverall entity-level metrics")
     print(f"Precision: {precision_score(true_labels, predicted_labels):.4f}")
     print(f"Recall:    {recall_score(true_labels, predicted_labels):.4f}")
     print(f"F1-score:  {f1_score(true_labels, predicted_labels):.4f}")
 
-    print("\n=== Per-Category Report ===")
+    print("\nPer-entity-category report")
     print(
         classification_report(
             true_labels,
             predicted_labels,
             digits=4,
-            zero_division=0
+            zero_division=0,
         )
     )
 
-    print(f"Evaluated documents: {len(true_labels)}")
-    print(f"Skipped documents: {skipped_records}")
+    print("\nFirst few prediction errors")
+    if not error_examples:
+        print("No token-label mismatches found.")
+    else:
+        for example in error_examples:
+            print(f"\nRecord: {example['id']}")
+            print("Tokens:    ", example["tokens"])
+            print("Correct:   ", example["correct"])
+            print("Predicted: ", example["predicted"])
+
+
+def main():
+    print("Loading saved model...")
+
+    tokenizer, model, device, id_to_label = load_saved_model(
+        model_dir
+    )
+
+    print(f"Device: {device}")
+    print(f"Model directory: {model_dir}")
+
+    for dataset_name, file_path in evaluation_files.items():
+        evaluate_dataset(
+            dataset_name,
+            file_path,
+            tokenizer,
+            model,
+            device,
+            id_to_label,
+        )
 
 
 if __name__ == "__main__":
-    evaluate_model()
-
-    
-
+    main()
