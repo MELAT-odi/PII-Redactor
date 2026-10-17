@@ -1,0 +1,20 @@
+{"id": "external_eval_001", "tokens": ["ለቢሮው", "ማህሌት", "ገብረ", "በ", "0912345678", "ማግኘት", "ይቻላል"], "labels": ["O", "B-PERSON_NAME", "I-PERSON_NAME", "O", "B-PHONE", "O", "O"]}
+{"id": "external_eval_002", "tokens": ["የአመልካቹ", "ስም", "ዳዊት", "ከበደ", "ነው", "TIN", "1234567890"], "labels": ["O", "O", "B-PERSON_NAME", "I-PERSON_NAME", "O", "O", "B-TIN"]}
+{"id": "external_eval_003", "tokens": ["ደብዳቤውን", "ወደ", "abebe.fake@example.com", "መላክ", "ይቻላል"], "labels": ["O", "O", "B-EMAIL", "O", "O"]}
+{"id": "external_eval_004", "tokens": ["አዲሱ", "አድራሻ", "ቦሌ", "መድኃኒዓለም", "አካባቢ", "ነው"], "labels": ["O", "O", "B-ADDRESS_PLACE", "I-ADDRESS_PLACE", "O", "O"]}
+{"id": "external_eval_005", "tokens": ["የተመዘገበው", "የባንክ", "ሂሳብ", "1000123456789", "ነው"], "labels": ["O", "O", "O", "B-BANK_ACCOUNT", "O"]}
+{"id": "external_eval_006", "tokens": ["የደንበኛው", "መለያ", "ET-FAKE-583920", "በፋይሉ", "ውስጥ", "ተመዝግቧል"], "labels": ["O", "O", "B-NATIONAL_ID", "O", "O", "O"]}
+{"id": "external_eval_007", "tokens": ["የትውልድ", "ቀኑ", "12/05/1998", "መሆኑ", "ተገልጿል"], "labels": ["O", "O", "B-DATE_OF_BIRTH", "O", "O"]}
+{"id": "external_eval_008", "tokens": ["አቶ", "ናትናኤል", "ተስፋዬ", "በ", "ቂርቆስ", "ክፍለ", "ከተማ", "ይኖራሉ"], "labels": ["O", "B-PERSON_NAME", "I-PERSON_NAME", "O", "B-ADDRESS_PLACE", "I-ADDRESS_PLACE", "I-ADDRESS_PLACE", "O"]}
+{"id": "external_eval_009", "tokens": ["ለተጨማሪ", "መረጃ", "0923456781", "ወይም", "contact.fake@example.org", "ይጠቀሙ"], "labels": ["O", "O", "B-PHONE", "O", "B-EMAIL", "O"]}
+{"id": "external_eval_010", "tokens": ["የአበባ", "ሙሉ", "TIN", "9876543210", "በማመልከቻው", "ላይ", "ተጽፏል"], "labels": ["O", "B-PERSON_NAME", "O", "B-TIN", "O", "O", "O"]}
+{"id": "external_eval_011", "tokens": ["የተቀባዩ", "ስም", "ሰላማዊት", "ደረጀ", "እና", "የባንክ", "ቁጥር", "1000987654321", "ተረጋግጠዋል"], "labels": ["O", "O", "B-PERSON_NAME", "I-PERSON_NAME", "O", "O", "O", "B-BANK_ACCOUNT", "O"]}
+{"id": "external_eval_012", "tokens": ["የመኖሪያ", "ቦታው", "አያት", "መንገድ", "ሲሆን", "ስልኩ", "0934567821", "ነው"], "labels": ["O", "O", "B-ADDRESS_PLACE", "I-ADDRESS_PLACE", "O", "O", "B-PHONE", "O"]}
+{"id": "external_eval_013", "tokens": ["የፋይል", "ባለቤት", "ብርሃኑ", "አለሙ", "የተወለዱት", "በ", "03-11-2001", "ነው"], "labels": ["O", "O", "B-PERSON_NAME", "I-PERSON_NAME", "O", "O", "B-DATE_OF_BIRTH", "O"]}
+{"id": "external_eval_014", "tokens": ["እባክዎ", "የተቋሙን", "ደብዳቤ", "ወደ", "melat.test@example.net", "ይላኩ"], "labels": ["O", "O", "O", "O", "B-EMAIL", "O"]}
+{"id": "external_eval_015", "tokens": ["በ", "ልደታ", "ክፍለ", "ከተማ", "የሚገኘው", "ቢሮ", "የ", "ፋይል", "FAKE-ID-729104", "ተቀብሏል"], "labels": ["O", "B-ADDRESS_PLACE", "I-ADDRESS_PLACE", "I-ADDRESS_PLACE", "O", "O", "O", "O", "B-NATIONAL_ID", "O"]}
+{"id": "external_eval_016", "tokens": ["የግብር", "ከፋይ", "ሚካኤል", "ጌታቸው", "መለያ", "4567891230", "ነው"], "labels": ["O", "O", "B-PERSON_NAME", "I-PERSON_NAME", "O", "B-TIN", "O"]}
+{"id": "external_eval_017", "tokens": ["የአገልግሎቱ", "ተጠቃሚ", "ፍሬወይኒ", "ኃይሉ", "በ", "ሲኤምሲ", "አካባቢ", "ይገኛሉ"], "labels": ["O", "O", "B-PERSON_NAME", "I-PERSON_NAME", "O", "B-ADDRESS_PLACE", "I-ADDRESS_PLACE", "O"]}
+{"id": "external_eval_018", "tokens": ["የክፍያ", "ማረጋገጫው", "የሂሳብ", "ቁጥር", "1000456789123", "እና", "0911122233", "ይዟል"], "labels": ["O", "O", "O", "O", "B-BANK_ACCOUNT", "O", "B-PHONE", "O"]}
+{"id": "external_eval_019", "tokens": ["ለ", "ህጋዊ", "ግንኙነት", "የሚያገለግለው", "legal.fake@example.com", "ነው"], "labels": ["O", "O", "O", "O", "B-EMAIL", "O"]}
+{"id": "external_eval_020", "tokens": ["የተመዝጋቢው", "ማስረጃ", "NID-FAKE-628401", "እና", "የልደት", "ቀን", "21/09/1995", "ተካትተዋል"], "labels": ["O", "O", "B-NATIONAL_ID", "O", "O", "O", "B-DATE_OF_BIRTH", "O"]}
