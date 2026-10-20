@@ -2,3 +2,4 @@
 __pycache__/
 *.pyc
 models/ner_model/
+installed_packages.txt
