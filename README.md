@@ -2,11 +2,11 @@
 
 An NLP-based application that detects and redacts Personally Identifiable Information (PII) in Amharic text using a fine-tuned XLM-RoBERTa model and rule-based detection.
 
-**Try the live demo:** [Open the application](YOUR_DEPLOYED_DEMO_URL)
+**Live demo:** Not deployed yet.
 
 **Source code:** [GitHub Repository](https://github.com/MELAT-odi/PII-Redactor)
 
-> The application is an educational MVP. Detection is not perfect, so review redacted text before sharing it.
+> **Note:** This is an educational MVP. Detection is not perfect, so review redacted text before sharing it.
 
 ## 1. Project Overview
 
@@ -27,7 +27,7 @@ An Amharic sentence containing a person's name and phone number.
 
 The person's name is replaced with `[PERSON_NAME]`, and the phone number is replaced with `[PHONE]`.
 
-The application is designed to demonstrate how automated PII detection and redaction can support privacy-aware text processing.
+The application demonstrates how automated PII detection and redaction can support privacy-aware text processing.
 
 ## 2. Objectives
 
@@ -50,7 +50,7 @@ The application is designed to demonstrate how automated PII detection and redac
 | `TIN` | Taxpayer Identification Numbers |
 | `BANK_ACCOUNT` | Bank account numbers |
 
-Detection performance varies by category. Some identifiers, particularly TIN and National ID, require further improvement.
+Detection performance varies by category. TIN and National ID detection currently require further improvement.
 
 ## 4. Technologies Used
 
@@ -59,6 +59,7 @@ Detection performance varies by category. Some identifiers, particularly TIN and
 - **PyTorch** — model inference
 - **Hugging Face Transformers** — XLM-RoBERTa token classification
 - **Regular expressions** — structured PII detection
+- **Cryptography (Fernet)** — encryption for reversible redaction
 - **pytest** — automated testing
 - **Git and GitHub** — version control
 
@@ -73,7 +74,7 @@ Detection performance varies by category. Some identifiers, particularly TIN and
 
 ## 6. Redaction Modes
 
-### Irreversible mode
+### Irreversible Mode
 
 Detected values are replaced with category-specific placeholders, for example:
 
@@ -83,7 +84,7 @@ Detected values are replaced with category-specific placeholders, for example:
 
 The original values are not intended to be recoverable from the redacted output alone.
 
-### Reversible mode
+### Reversible Mode
 
 Detected values are replaced with numbered placeholders, allowing the original text to be restored using the corresponding encrypted vault and encryption key.
 
@@ -91,20 +92,33 @@ Detected values are replaced with numbered placeholders, allowing the original t
 
 ## 7. Model Evaluation
 
-The fine-tuned model was evaluated on a held-out synthetic test set.
+The fine-tuned model was evaluated on a held-out synthetic test set containing 400 records.
 
 | Metric | Score |
 |---|---:|
-| Precision | 84.97% |
-| Recall | 84.43% |
-| F1-score | 84.70% |
-| Test records | 400 |
+| Entity-level precision | 84.97% |
+| Entity-level recall | 84.43% |
+| Entity-level F1-score | 84.70% |
+| Test records evaluated | 400 |
 
-These are entity-level evaluation metrics for the current saved model and test set.
+These metrics describe the performance of the currently evaluated saved model on the synthetic test set. The exact record match rate was 67.50%; this measures records whose complete predicted entity sequences matched the reference sequences and is different from entity-level F1-score.
 
-Performance differs by category. In the current evaluation, TIN detection had an F1-score of 0.00, while National ID detection had an F1-score of 0.20. These results indicate that further training-data improvements and model evaluation are necessary.
+### Performance by PII Category
 
-The dataset is synthetic, and these results should not be interpreted as proof of performance on real-world Amharic documents.
+| Category | F1-score |
+|---|---:|
+| `ADDRESS_PLACE` | 0.7324 |
+| `BANK_ACCOUNT` | 0.7015 |
+| `DATE_OF_BIRTH` | 1.0000 |
+| `EMAIL` | 1.0000 |
+| `NATIONAL_ID` | 0.2000 |
+| `PERSON_NAME` | 0.9597 |
+| `PHONE` | 0.9368 |
+| `TIN` | 0.0000 |
+
+The results show that performance differs across categories. In this evaluation, TIN detection had an F1-score of 0.00 and National ID detection had an F1-score of 0.20. These categories need additional data, error analysis, and model improvement.
+
+The dataset is synthetic, so these results should not be interpreted as proof of performance on real-world Amharic documents.
 
 ## 8. Project Structure
 
@@ -133,7 +147,7 @@ pii_redactor/
 └── README.md
 ```
 
-Additional project scripts and data files may be present in the repository.
+This structure describes the main project components. Some local files and datasets may not be included in the Git repository.
 
 ## 9. Run Locally
 
@@ -141,18 +155,16 @@ Additional project scripts and data files may be present in the repository.
 
 - Python 3.12 recommended
 - Git
-- The trained model files required by the application
+- Internet access to install dependencies and obtain the trained model
 
-### Installation
-
-Clone the repository:
+### Step 1: Clone the Repository
 
 ```bash
 git clone https://github.com/MELAT-odi/PII-Redactor.git
 cd PII-Redactor
 ```
 
-Create a virtual environment.
+### Step 2: Create a Virtual Environment
 
 **Windows PowerShell:**
 
@@ -161,21 +173,54 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-Install dependencies:
+**Linux or macOS:**
 
 ```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+```
+
+### Step 3: Install Dependencies
+
+```bash
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Ensure the trained model is available at `models/colab_best_model/` and contains the required tokenizer and model files.
+### Step 4: Obtain the Trained Model
 
-### Start the application
+The trained model files are excluded from the Git repository by `.gitignore` because the model weights are large.
+
+Before launching the application, obtain the trained model separately from the project's designated model repository or follow the model setup instructions provided by the project author.
+
+The application currently expects the model at:
+
+```text
+models/colab_best_model/
+```
+
+The directory must contain the required configuration, model weights, and tokenizer files, including files such as:
+
+- `config.json`
+- `model.safetensors`
+- `sentencepiece.bpe.model`
+- `tokenizer.json`
+- `tokenizer_config.json`
+- `special_tokens_map.json`
+
+The model must be compatible with the Transformers version used by the application.
+
+**Note:** A public model download link and automated download instructions will be added after model hosting is configured.
+
+### Step 5: Start the Application
+
+From the project root, run:
 
 ```bash
 python -m streamlit run app.py
 ```
 
-Open the local URL printed in the terminal.
+Open the local URL printed in the terminal by Streamlit.
 
 ## 10. Testing
 
@@ -185,35 +230,53 @@ Run the automated tests from the project root:
 python -m pytest tests -v
 ```
 
-The available tests cover the functionality implemented in the repository. Review the test results before relying on the application for sensitive workflows.
+The available tests cover implemented functionality. Review the test results before relying on the application for sensitive workflows.
 
-## 11. Limitations
+## 11. Model Evaluation Script
 
-- The training data is synthetic and may not represent the full diversity of real-world Amharic text.
+The project includes an evaluation script:
+
+```bash
+python src/evaluate_ner.py
+```
+
+Ensure the trained model and expected test dataset are available at the paths configured by the script.
+
+The evaluation uses entity-level precision, recall, and F1-score to assess the quality of PII detection.
+
+## 12. Limitations
+
+- The training and evaluation data are synthetic and may not represent the full diversity of real-world Amharic text.
 - TIN and National ID detection currently require improvement.
 - Names, addresses, unusual number formats, and unseen patterns may be missed or incorrectly identified.
-- Evaluation results on synthetic data may not generalize to real documents.
+- Results on synthetic data may not generalize to real documents.
 - Redaction quality depends on the accuracy of the detection pipeline.
 - The application is an educational prototype, not a production-certified privacy solution.
 
 A successful redaction operation does not guarantee that all PII has been removed.
 
-## 12. Future Improvements
+## 13. Future Improvements
 
 - Increase the diversity and quality of annotated training data.
 - Improve detection of TIN, National ID, and address information.
-- Expand evaluation with carefully annotated examples.
+- Expand evaluation using carefully annotated examples.
 - Improve error handling and user feedback.
 - Strengthen key management and security testing for reversible redaction.
-- Evaluate performance on varied Amharic text sources.
+- Host the trained model and simplify model setup.
+- Deploy the application for public demonstration.
 
-## 13. Privacy and Responsible Use
+## 14. Privacy and Responsible Use
 
-Use synthetic information when testing the public demo. Avoid entering real personal, medical, financial, or confidential information into an unsecured deployment.
+- Use synthetic information when testing the application.
+- Avoid entering real personal, medical, financial, or confidential information into an unsecured deployment.
+- Never commit encryption keys or decrypted vault contents to GitHub.
+- Protect reversible-redaction keys and encrypted vaults.
+- Review redacted text before sharing it because missed detections may leave sensitive information exposed.
 
-Review redacted text before sharing it, because missed detections may leave sensitive information exposed.
+## 15. Repository
 
-## 14. Repository
+**Project:** Amharic PII Detector and Redactor
 
-**Project:** Amharic PII Detector and Redactor  
-**GitHub:** https://github.com/MELAT-odi/PII-Redactor
+**GitHub:** [MELAT-odi/PII-Redactor](https://github.com/MELAT-odi/PII-Redactor)
+
+**Live demo:** Not deployed yet.
