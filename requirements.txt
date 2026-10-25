@@ -1,5 +1,6 @@
 streamlit==1.66.0
-torch==2.14.1
+torch==2.6.0
 transformers==4.45.2
-seqeval
+tokenizers==0.20.3
+seqeval==1.2.2
 pytest
