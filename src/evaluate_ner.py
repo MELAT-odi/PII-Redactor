@@ -16,11 +16,10 @@ from transformers import (
 
 project_root = Path(__file__).resolve().parent.parent
 data_dir = project_root / "data" / "synthetic"
-model_dir = project_root / "models" / "ner_model"
+model_dir = project_root / "models" / "colab_best_model"
 
 evaluation_files = {
     "Held-out test set": data_dir / "test.jsonl",
-    "External evaluation set": data_dir / "external_eval.jsonl",
 }
 
 

@@ -1,4 +1,4 @@
-
+import json
 import re
 from pathlib import Path
 
@@ -6,6 +6,12 @@ import streamlit as st
 import torch
 from transformers import AutoModelForTokenClassification, AutoTokenizer
 
+from src.reversible_redaction import (
+    generate_encryption_key,
+    reversible_redact,
+)
+
+# -------------------- Project configuration --------------------
 
 project_root = Path(__file__).resolve().parent
 model_dir = project_root / "models" / "colab_best_model"
@@ -17,6 +23,8 @@ st.set_page_config(
     layout="wide",
 )
 
+
+# -------------------- Load trained model --------------------
 
 @st.cache_resource
 def load_model():
@@ -30,6 +38,7 @@ def load_model():
     )
 
     tokenizer = AutoTokenizer.from_pretrained(str(model_dir))
+
     model = AutoModelForTokenClassification.from_pretrained(
         str(model_dir)
     )
@@ -45,10 +54,11 @@ def load_model():
     return tokenizer, model, device, id_to_label
 
 
+# -------------------- Rule-based detection --------------------
+
 def detect_phone_and_birth_date(text):
     detections = []
 
-    # Match Ethiopian mobile numbers, including Amharic prefixes.
     phone_pattern = re.compile(
         r"(?<!\d)(?:\+251[\s-]?9\d{2}[\s-]?\d{3}[\s-]?\d{3}|09\d{8})(?!\d)"
     )
@@ -61,7 +71,6 @@ def detect_phone_and_birth_date(text):
             "end": match.end(),
         })
 
-    # Match dates following an explicit Amharic birth-date label.
     birth_date_pattern = re.compile(
         r"የትውልድ\s*ቀን\w*\s*[:：]?\s*"
         r"(\d{1,2}\s+[\u1200-\u137F]+\s+\d{4})"
@@ -78,8 +87,9 @@ def detect_phone_and_birth_date(text):
     return detections
 
 
+# -------------------- Model-based PII detection --------------------
+
 def detect_pii(text, tokenizer, model, device, id_to_label):
-    # Preserve the original character positions for every word.
     words = []
 
     for match in re.finditer(r"\w+|[^\w\s]", text, re.UNICODE):
@@ -120,7 +130,6 @@ def detect_pii(text, tokenizer, model, device, id_to_label):
 
     predicted_ids = outputs.logits.argmax(dim=-1)[0].tolist()
 
-    # Use the prediction for the first subword of each word.
     word_predictions = {}
 
     for token_index, word_id in enumerate(word_ids):
@@ -178,6 +187,8 @@ def detect_pii(text, tokenizer, model, device, id_to_label):
     return detections
 
 
+# -------------------- Filter known false positives --------------------
+
 def filter_false_positives(text, detections):
     filtered_detections = []
 
@@ -187,13 +198,11 @@ def filter_false_positives(text, detections):
 
         context_before = text[max(0, start - 60):start]
 
-        # Avoid labeling a clearly identified receipt number as TIN.
         is_receipt_number = (
             label == "TIN"
             and "ደረሰኝ ቁጥር" in context_before
         )
 
-        # Avoid labeling a known event/confirmation date as a DOB.
         is_event_date = (
             label == "DATE_OF_BIRTH"
             and (
@@ -201,7 +210,7 @@ def filter_false_positives(text, detections):
                 or "ማረጋገጫ ቀን" in context_before
             )
         )
-                # Avoid labeling shipment tracking numbers as bank accounts.
+
         is_tracking_number = (
             label == "BANK_ACCOUNT"
             and (
@@ -220,8 +229,9 @@ def filter_false_positives(text, detections):
     return filtered_detections
 
 
+# -------------------- Irreversible redaction --------------------
+
 def redact_text(text, detections):
-    # Prefer the longest detection when multiple detections overlap.
     accepted = []
 
     for entity in sorted(
@@ -238,9 +248,8 @@ def redact_text(text, detections):
         )
 
         if not overlaps:
-            accepted.append(entity)
+            accepted.append(entity.copy())
 
-    # Replace right-to-left so original offsets remain valid.
     redacted = text
 
     for entity in sorted(
@@ -259,22 +268,53 @@ def redact_text(text, detections):
     return redacted, accepted
 
 
-# -------------------- Streamlit interface --------------------
+# -------------------- Initialize session state --------------------
+
+if "accepted_entities" not in st.session_state:
+    st.session_state["accepted_entities"] = []
+
+if "redacted_text" not in st.session_state:
+    st.session_state["redacted_text"] = ""
+
+if "redaction_completed" not in st.session_state:
+    st.session_state["redaction_completed"] = False
+
+if "reversible_vault" not in st.session_state:
+    st.session_state["reversible_vault"] = None
+
+if "reversible_key" not in st.session_state:
+    st.session_state["reversible_key"] = None
+
+
+# -------------------- Main interface --------------------
 
 st.title("🔐 Amharic PII Detector and Redactor")
 
 st.write(
-    "Detect personally identifiable information (PII) in text "
-    "and redact detected entities."
+    "Detect personally identifiable information (PII) "
+    "in Amharic or English text and protect it through redaction."
 )
 
 st.info(
-    "This demo combines a trained NER model with rules for "
-    "Ethiopian mobile numbers and explicitly labeled Amharic birth dates. "
-    "Detection is not perfect. Some personal information may be missed, "
-    "and some text may be incorrectly identified. Use synthetic examples."
+    "This Amharic PII Detector and Redactor uses a trained "
+    "Named Entity Recognition (NER) model, supported by "
+    "rule-based detection, to identify personally identifiable "
+    "information (PII) in text.\n\n"
+    "**Irreversible Redaction:** Replaces detected personal "
+    "information with category labels, such as `[PHONE]`.\n\n"
+    "**Reversible Redaction:** Replaces detected information "
+    "with unique placeholders and stores the original values "
+    "in an encrypted vault that can be restored using the "
+    "corresponding key.\n\n"
+    "**Important:** Detection is not guaranteed to be complete "
+    "or error-free. Some sensitive information may be missed, "
+    "and some text may be incorrectly identified. For "
+    "demonstrations and testing, use synthetic or non-sensitive "
+    "sample text."
 )
 
+
+# Load the model
 try:
     tokenizer, model, device, id_to_label = load_model()
     st.success(f"Model loaded successfully on {device}.")
@@ -283,6 +323,8 @@ except Exception as error:
     st.stop()
 
 
+# -------------------- Persistent input text --------------------
+
 sample_text = (
     "ስም: አበበ ከበደ። "
     "ስልክ: 0912345678። "
@@ -290,21 +332,46 @@ sample_text = (
     "ኢሜይል: abebe@example.com"
 )
 
+if "saved_input_text" not in st.session_state:
+    st.session_state["saved_input_text"] = sample_text
+
+if "input_text" not in st.session_state:
+    st.session_state["input_text"] = st.session_state["saved_input_text"]
+
+
+def save_input_text():
+    st.session_state["saved_input_text"] = st.session_state["input_text"]
+
+    # Mark the old result as outdated when the input changes.
+    st.session_state["redaction_completed"] = False
+
+
 text = st.text_area(
     "Enter text to scan",
-    value=sample_text,
     height=200,
     placeholder="Type or paste Amharic or English text here...",
+    key="input_text",
+    on_change=save_input_text,
 )
 
-if st.button("Detect and redact", type="primary"):
+
+# 2. Redaction mode directly below the text box
+redaction_mode = st.radio(
+    "Choose redaction mode",
+    ["Irreversible", "Reversible"],
+    horizontal=True,
+    key="redaction_mode",
+)
+
+
+# 3. Detect and redact button
+if st.button("Detect and redact", type="primary", use_container_width=True):
+    text = st.session_state["input_text"]
     if not text.strip():
         st.warning("Please enter some text first.")
-
     else:
         try:
-            with st.spinner("Detecting PII..."):
-                # Run the trained NER model.
+            with st.spinner("Detecting and redacting PII..."):
                 detections = detect_pii(
                     text,
                     tokenizer,
@@ -313,56 +380,138 @@ if st.button("Detect and redact", type="primary"):
                     id_to_label,
                 )
 
-                # Add the targeted rule-based detections.
-                rule_detections = detect_phone_and_birth_date(text)
-                detections.extend(rule_detections)
+                detections.extend(
+                    detect_phone_and_birth_date(text)
+                )
 
-                # Remove known contextual false positives.
                 detections = filter_false_positives(
                     text,
                     detections,
                 )
 
-                # Redact detected spans.
-                redacted_text, accepted = redact_text(
-                    text,
-                    detections,
-                )
+                # Resolve overlaps before either redaction mode.
+                _, accepted = redact_text(text, detections)
 
-            st.subheader("Redacted text")
+                st.session_state["accepted_entities"] = accepted
 
-            st.text_area(
-                "Irreversibly redacted output",
-                value=redacted_text,
-                height=180,
-            )
+                if redaction_mode == "Irreversible":
+                    redacted_text, accepted = redact_text(
+                        text,
+                        accepted,
+                    )
 
-            st.caption(
-                "This mode replaces detected values with category "
-                "placeholders and does not keep a restoration mapping."
-            )
+                    st.session_state["redacted_text"] = redacted_text
+                    st.session_state["reversible_vault"] = None
+                    st.session_state["reversible_key"] = None
 
-            st.subheader(f"Detected entities: {len(accepted)}")
+                else:
+                    encryption_key = generate_encryption_key()
 
-            if accepted:
-                st.dataframe(
-                    [
-                        {
-                            "Category": item["label"],
-                            "Detected text": item["value"],
-                            "Start": item["start"],
-                            "End": item["end"],
-                        }
-                        for item in accepted
-                    ],
-                    use_container_width=True,
-                    hide_index=True,
-                )
-            else:
-                st.warning(
-                    "No entities were detected. This does not guarantee "
-                    "that the text contains no PII."
-                )
+                    redacted_text, vault = reversible_redact(
+                        text,
+                        accepted,
+                        encryption_key,
+                    )
+
+                    st.session_state["redacted_text"] = redacted_text
+                    st.session_state["reversible_vault"] = vault
+                    st.session_state["reversible_key"] = encryption_key
+
+                st.session_state["redaction_completed"] = True
+
+            st.success("PII detection and redaction completed.")
 
         except Exception as error:
-            st.error(f"Detection failed: {error}")
+            st.session_state["redaction_completed"] = False
+            st.error(f"Processing failed: {error}")
+
+
+# -------------------- Redacted output --------------------
+
+if st.session_state["redaction_completed"]:
+    st.divider()
+    st.subheader("Redacted Text")
+
+    # The output is stored in session state, so it remains visible
+    # when Streamlit reruns the application.
+    st.text_area(
+        "Protected output",
+        value=st.session_state["redacted_text"],
+        height=180,
+        disabled=True,
+    )
+
+    
+    
+if st.session_state["reversible_vault"] is not None:
+    st.divider()
+    st.subheader("🔐 Encrypted Vault and Key")
+
+    vault_json = json.dumps(
+        st.session_state["reversible_vault"],
+        ensure_ascii=False,
+        indent=2,
+    )
+
+    encryption_key = st.session_state["reversible_key"].decode("utf-8")
+
+    st.markdown("**Encrypted vault**")
+
+    with st.expander("View encrypted vault", expanded=False):
+        st.code(vault_json, language="json")
+
+    st.download_button(
+        "⬇️ Download encrypted vault",
+        data=vault_json,
+        file_name="encrypted_pii_vault.json",
+        mime="application/json",
+        use_container_width=True,
+    )
+
+    st.markdown("**Encryption key**")
+
+    if "show_encryption_key" not in st.session_state:
+        st.session_state["show_encryption_key"] = False
+
+    st.text_input(
+        "Copy the key from this field",
+        value=encryption_key,
+        type=(
+            "default"
+            if st.session_state["show_encryption_key"]
+            else "password"
+        ),
+        disabled=False,
+        key="encryption_key_display",
+    )
+
+    st.checkbox(
+        "Show encryption key",
+        key="show_encryption_key",
+    )
+
+    st.download_button(
+        "⬇️ Download encryption key",
+        data=encryption_key,
+        file_name="pii_encryption_key.txt",
+        mime="text/plain",
+        use_container_width=True,
+    )
+
+    st.warning(
+        "Keep the key separate from the vault. Anyone who obtains both "
+        "may be able to recover the original personal information."
+    )
+
+
+
+    if not st.session_state["accepted_entities"]:
+        st.warning(
+            "No entities were detected. This does not guarantee "
+            "that the text contains no PII."
+        )
+
+    st.caption(
+        "Use the Restore Text page to restore protected text in reversible mode. "
+        "The Model Evaluation page displays detected entities and test-set metrics."
+    )
