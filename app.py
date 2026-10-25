@@ -8,7 +8,7 @@ from transformers import AutoModelForTokenClassification, AutoTokenizer
 
 
 project_root = Path(__file__).resolve().parent
-model_dir = project_root / "models" / "ner_model"
+model_dir = project_root / "models" / "colab_best_model"
 
 
 st.set_page_config(
@@ -201,8 +201,18 @@ def filter_false_positives(text, detections):
                 or "ማረጋገጫ ቀን" in context_before
             )
         )
+                # Avoid labeling shipment tracking numbers as bank accounts.
+        is_tracking_number = (
+            label == "BANK_ACCOUNT"
+            and (
+                "መከታተያ ቁጥር" in context_before
+                or "መከታተያ ቁጥር" in text[
+                    entity["end"]:entity["end"] + 30
+                ]
+            )
+        )
 
-        if is_receipt_number or is_event_date:
+        if is_receipt_number or is_event_date or is_tracking_number:
             continue
 
         filtered_detections.append(entity)
