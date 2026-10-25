@@ -4,3 +4,7 @@ __pycache__/
 installed_packages.txt
 # Local model weight and training checkpoints 
 models/
+
+# Local backup files
+*_backup.*
+*_before_new_generator.*
