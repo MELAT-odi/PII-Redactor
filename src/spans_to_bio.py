@@ -16,17 +16,42 @@ output_files = {
 token_pattern = re.compile(r"\w+|[^\w\s]", re.UNICODE)
 
 
-def tokenize_with_offsets(text):
-    return [
-        (match.group(), match.start(), match.end())
-        for match in token_pattern.finditer(text)
-    ]
+def tokenize_with_offsets(text, boundaries=None):
+    tokens_with_offsets = []
+
+    boundaries = sorted(set(boundaries or []))
+
+    for match in token_pattern.finditer(text):
+        token = match.group()
+        token_start = match.start()
+        token_end = match.end()
+
+        split_points = [
+            boundary
+            for boundary in boundaries
+            if token_start < boundary < token_end
+        ]
+
+        positions = [token_start] + split_points + [token_end]
+
+        for start, end in zip(positions, positions[1:]):
+            tokens_with_offsets.append(
+                (text[start:end], start, end)
+            )
+
+    return tokens_with_offsets
 
 
 def convert_record(record):
     text = record["text"]
     entities = sorted(record["entities"], key=lambda item: item["start"])
-    tokens_with_offsets = tokenize_with_offsets(text)
+    boundaries = [
+        position
+        for entity in entities
+        for position in (entity["start"], entity["end"])
+    ]
+
+    tokens_with_offsets = tokenize_with_offsets(text, boundaries)
 
     tokens = []
     labels = []
