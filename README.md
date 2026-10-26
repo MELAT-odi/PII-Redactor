@@ -2,7 +2,7 @@
 
 An NLP-based application that detects and redacts Personally Identifiable Information (PII) in Amharic text using a fine-tuned XLM-RoBERTa model and rule-based detection.
 
-**Live demo:** Not deployed yet.
+**Live demo:** [Open the Amharic PII Detector](https://pii-redactor-j3mvgg9j5yj6hqhjdz2euz.streamlit.app/)
 
 **Source code:** [GitHub Repository](https://github.com/MELAT-odi/PII-Redactor)
 
@@ -279,4 +279,4 @@ A successful redaction operation does not guarantee that all PII has been remove
 
 **GitHub:** [MELAT-odi/PII-Redactor](https://github.com/MELAT-odi/PII-Redactor)
 
-**Live demo:** Not deployed yet.
+**Live demo:** [Open the application](https://pii-redactor-j3mvgg9j5yj6hqhjdz2euz.streamlit.app/)
