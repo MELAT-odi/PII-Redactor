@@ -11,11 +11,10 @@ from src.reversible_redaction import (
     reversible_redact,
 )
 
+
 # -------------------- Project configuration --------------------
 
-project_root = Path(__file__).resolve().parent
-model_dir = project_root / "models" / "colab_best_model"
-
+model_name = "Melat-odi/amharic-pii-detector"
 
 st.set_page_config(
     page_title="Amharic PII Detector",
@@ -28,19 +27,14 @@ st.set_page_config(
 
 @st.cache_resource
 def load_model():
-    if not model_dir.exists():
-        raise FileNotFoundError(
-            f"Model folder not found: {model_dir}"
-        )
-
     device = torch.device(
         "cuda" if torch.cuda.is_available() else "cpu"
     )
 
-    tokenizer = AutoTokenizer.from_pretrained(str(model_dir))
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     model = AutoModelForTokenClassification.from_pretrained(
-        str(model_dir)
+        model_name
     )
 
     model.to(device)
@@ -53,6 +47,8 @@ def load_model():
 
     return tokenizer, model, device, id_to_label
 
+
+tokenizer, model, device, id_to_label = load_model()
 
 # -------------------- Rule-based detection --------------------
 
@@ -316,7 +312,7 @@ st.info(
 
 # Load the model
 try:
-    tokenizer, model, device, id_to_label = load_model()
+
     st.success(f"Model loaded successfully on {device}.")
 except Exception as error:
     st.error(f"Could not load the trained model: {error}")
@@ -441,8 +437,8 @@ if st.session_state["redaction_completed"]:
         disabled=True,
     )
 
-    
-    
+
+
 if st.session_state["reversible_vault"] is not None:
     st.divider()
     st.subheader("🔐 Encrypted Vault and Key")
